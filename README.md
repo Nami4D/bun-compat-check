@@ -78,7 +78,7 @@ Migration readiness: 67%
 
 1. **Native Addon Detection** — Scans installed `node_modules` for signals like `binding.gyp`, `node-gyp` scripts, and N-API usage that indicate V8-dependent native addons.
 
-2. **Node.js API Static Analysis** — Scans `.js/.mjs/.cjs` files in each package for `require()` and `import` of Node.js built-in modules, then cross-references against Bun's compatibility table to flag unsupported or partially supported APIs.
+2. **Node.js API Static Analysis** — Scans `.js/.mjs/.cjs` files in each package for `require()` and `import` of Node.js built-in modules, then cross-references against Bun's compatibility table to flag unsupported or partially supported APIs. The compatibility table is maintained in [`src/node-compat.ts`](src/node-compat.ts) (last verified: 2026-04-02).
 
 3. **Migration Score** — Calculates a readiness percentage based on the ratio of non-incompatible packages (excludes packages that couldn't be analyzed).
 

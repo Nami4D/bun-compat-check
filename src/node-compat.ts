@@ -5,6 +5,7 @@
  * tracking individual package compatibility (200M+ on npm).
  *
  * Reference: https://bun.sh/docs/runtime/nodejs-apis
+ * Last verified: 2026-04-02
  */
 
 export type NodeApiStatus = "supported" | "partial" | "unsupported";
