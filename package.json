@@ -1,0 +1,28 @@
+{
+  "name": "bun-compat-check",
+  "version": "0.1.0",
+  "description": "Check your Node.js project's dependency compatibility with Bun runtime",
+  "type": "module",
+  "bin": {
+    "bun-compat-check": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "bun",
+    "node",
+    "compatibility",
+    "migration",
+    "cli"
+  ],
+  "author": "Nami4D",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0"
+  }
+}
