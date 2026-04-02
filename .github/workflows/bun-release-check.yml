@@ -1,0 +1,62 @@
+name: Check for new Bun releases
+
+on:
+  schedule:
+    # Run daily at 09:00 UTC
+    - cron: "0 9 * * *"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Get latest Bun release
+        id: bun
+        run: |
+          LATEST=$(gh api repos/oven-sh/bun/releases/latest --jq '.tag_name') || {
+            echo "Failed to fetch latest Bun release" >&2
+            exit 1
+          }
+          if [ -z "$LATEST" ]; then
+            echo "Bun release tag_name was empty" >&2
+            exit 1
+          fi
+          echo "version=$LATEST" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Check if issue already exists
+        id: existing
+        run: |
+          COUNT=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label "bun-release" \
+            --search "${{ steps.bun.outputs.version }}" \
+            --state all \
+            --json number \
+            --jq 'length')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Create issue for new release
+        if: steps.existing.outputs.count == '0'
+        run: |
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "Update node-compat.ts for Bun ${{ steps.bun.outputs.version }}" \
+            --label "bun-release" \
+            --body "$(cat <<'EOF'
+          Bun [${{ steps.bun.outputs.version }}](https://github.com/oven-sh/bun/releases/tag/${{ steps.bun.outputs.version }}) has been released.
+
+          Please review and update the Node.js API compatibility table in `src/node-compat.ts`:
+
+          - [ ] Check [Bun's Node.js compatibility page](https://bun.sh/docs/runtime/nodejs-apis) for changes
+          - [ ] Update module statuses if needed
+          - [ ] Update the `Last verified` date in the JSDoc comment
+          EOF
+          )"
+        env:
+          GH_TOKEN: ${{ github.token }}
