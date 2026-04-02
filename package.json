@@ -20,6 +20,16 @@
   ],
   "author": "Nami4D",
   "license": "MIT",
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/Nami4D"
+    },
+    {
+      "type": "ko-fi",
+      "url": "https://ko-fi.com/nami4d"
+    }
+  ],
   "devDependencies": {
     "typescript": "^5.7.0",
     "tsx": "^4.19.0",

@@ -115,6 +115,13 @@ Contributions welcome! The most impactful way to help:
 - **Report false positives/negatives** via GitHub Issues
 - **Improve native addon detection** heuristics
 
+## Support
+
+If you find this tool useful, consider supporting the project:
+
+- [GitHub Sponsors](https://github.com/sponsors/Nami4D)
+- [Ko-fi](https://ko-fi.com/nami4d)
+
 ## License
 
 MIT
