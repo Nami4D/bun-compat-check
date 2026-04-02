@@ -30,8 +30,8 @@ bun-compat-check
 # Check a specific project
 bun-compat-check ./my-project
 
-# Include devDependencies
-bun-compat-check --dev
+# Exclude devDependencies
+bun-compat-check --exclude-dev
 
 # JSON output (for CI/CD pipelines)
 bun-compat-check --json

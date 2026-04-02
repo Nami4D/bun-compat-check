@@ -5,7 +5,7 @@ import { printReport, printJson } from "./reporter.js";
 
 interface CliFlags {
   path: string;
-  dev: boolean;
+  excludeDev: boolean;
   optional: boolean;
   json: boolean;
   verbose: boolean;
@@ -15,7 +15,7 @@ interface CliFlags {
 function parseArgs(args: string[]): CliFlags {
   const flags: CliFlags = {
     path: ".",
-    dev: false,
+    excludeDev: false,
     optional: false,
     json: false,
     verbose: false,
@@ -25,9 +25,8 @@ function parseArgs(args: string[]): CliFlags {
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     switch (arg) {
-      case "--dev":
-      case "-d":
-        flags.dev = true;
+      case "--exclude-dev":
+        flags.excludeDev = true;
         break;
       case "--optional":
         flags.optional = true;
@@ -64,7 +63,7 @@ function printHelp(): void {
     path              Path to project directory (default: current directory)
 
   Options:
-    --dev, -d         Include devDependencies in the check
+    --exclude-dev     Exclude devDependencies from the check
     --optional        Include optionalDependencies in the check
     --json            Output results as JSON
     --verbose, -v     Show details for all packages (including compatible ones)
@@ -73,7 +72,7 @@ function printHelp(): void {
   Examples:
     bun-compat-check                    Check current directory
     bun-compat-check ./my-project       Check a specific project
-    bun-compat-check --dev              Include devDependencies
+    bun-compat-check --exclude-dev      Exclude devDependencies
     bun-compat-check --json             Machine-readable output
     bun-compat-check -v                 Verbose output for all packages
 `);
@@ -90,7 +89,7 @@ function main(): void {
 
   try {
     const summary = checkProject(flags.path, {
-      includeDev: flags.dev,
+      includeDev: !flags.excludeDev,
       includeOptional: flags.optional,
     });
 

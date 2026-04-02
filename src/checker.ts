@@ -173,7 +173,7 @@ export function checkProject(
   projectPath: string,
   options: CheckOptions = {}
 ): CheckSummary {
-  const { includeDev = false, includeOptional = false } = options;
+  const { includeDev = true, includeOptional = false } = options;
   const pkg = readPackageJson(projectPath);
   const resolvedPath = resolve(projectPath);
 
