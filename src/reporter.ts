@@ -3,7 +3,6 @@ import type { CheckResult, CheckSummary } from "./checker.js";
 const ICONS: Record<string, string> = {
   incompatible: "❌",
   partial: "⚠️",
-  "use-builtin": "🔄",
   unknown: "❓",
   compatible: "✅",
 };
@@ -11,7 +10,6 @@ const ICONS: Record<string, string> = {
 const LABELS: Record<string, string> = {
   incompatible: "INCOMPATIBLE",
   partial: "PARTIAL",
-  "use-builtin": "USE BUILTIN",
   unknown: "UNKNOWN",
   compatible: "OK",
 };
@@ -33,8 +31,6 @@ function statusColor(status: string): string {
       return COLORS.red;
     case "partial":
       return COLORS.yellow;
-    case "use-builtin":
-      return COLORS.cyan;
     case "unknown":
       return COLORS.magenta;
     case "compatible":
@@ -57,18 +53,15 @@ function formatResult(r: CheckResult, verbose: boolean): string {
   if (verbose || r.status !== "compatible") {
     lines.push(`   ${COLORS.dim}${r.reason}${COLORS.reset}`);
 
-    if (r.alternative) {
-      lines.push(
-        `   ${COLORS.green}→ Alternative: ${r.alternative}${COLORS.reset}`
-      );
-    }
-    if (r.bunBuiltin) {
-      lines.push(
-        `   ${COLORS.cyan}→ Bun built-in: ${r.bunBuiltin}${COLORS.reset}`
-      );
-    }
-    if (r.link) {
-      lines.push(`   ${COLORS.dim}→ ${r.link}${COLORS.reset}`);
+    if (r.detectedApis && r.detectedApis.length > 0) {
+      for (const api of r.detectedApis) {
+        const apiIcon = api.status === "unsupported" ? "✗" : "~";
+        const apiColor =
+          api.status === "unsupported" ? COLORS.red : COLORS.yellow;
+        lines.push(
+          `   ${apiColor}${apiIcon} node:${api.module} (${api.status})${COLORS.reset}`
+        );
+      }
     }
   }
 
@@ -83,10 +76,14 @@ export function printReport(
   verbose: boolean = false
 ): void {
   console.log();
-  console.log(
-    `${COLORS.bold}🔍 Bun Compatibility Report${COLORS.reset}`
-  );
+  console.log(`${COLORS.bold}🔍 Bun Compatibility Report${COLORS.reset}`);
   console.log(`${"─".repeat(50)}`);
+
+  // Warnings
+  for (const warn of summary.warnings) {
+    console.log(`${COLORS.yellow}⚠ ${warn}${COLORS.reset}`);
+  }
+
   console.log();
 
   // Group by status
@@ -97,13 +94,7 @@ export function printReport(
     groups[key].push(r);
   }
 
-  const groupOrder = [
-    "incompatible",
-    "partial",
-    "use-builtin",
-    "unknown",
-    "compatible",
-  ];
+  const groupOrder = ["incompatible", "partial", "unknown", "compatible"];
 
   for (const status of groupOrder) {
     const items = groups[status];
@@ -129,17 +120,12 @@ export function printReport(
   }
   if (summary.partial > 0) {
     console.log(
-      `  ${ICONS.partial}  ${COLORS.yellow}${summary.partial} partial${COLORS.reset} — works with caveats`
-    );
-  }
-  if (summary.useBuiltin > 0) {
-    console.log(
-      `  ${ICONS["use-builtin"]}  ${COLORS.cyan}${summary.useBuiltin} replaceable${COLORS.reset} — Bun has built-in alternatives`
+      `  ${ICONS.partial}  ${COLORS.yellow}${summary.partial} partial${COLORS.reset} — uses partially supported APIs`
     );
   }
   if (summary.unknown > 0) {
     console.log(
-      `  ${ICONS.unknown}  ${COLORS.magenta}${summary.unknown} unknown${COLORS.reset} — verify manually`
+      `  ${ICONS.unknown}  ${COLORS.magenta}${summary.unknown} unknown${COLORS.reset} — could not analyze`
     );
   }
   if (summary.compatible > 0) {
@@ -150,36 +136,41 @@ export function printReport(
 
   console.log();
 
-  // Migration readiness score
-  const score =
-    summary.total === 0
-      ? 100
-      : Math.round(
-          ((summary.compatible + summary.useBuiltin) / summary.total) * 100
-        );
-  const scoreColor =
-    score >= 80 ? COLORS.green : score >= 50 ? COLORS.yellow : COLORS.red;
+  // Migration readiness score (exclude unknown from calculation)
+  const analyzedTotal = summary.total - summary.unknown;
 
-  console.log(
-    `${COLORS.bold}Migration readiness: ${scoreColor}${score}%${COLORS.reset}`
-  );
-
-  if (score >= 90) {
+  if (analyzedTotal === 0) {
     console.log(
-      `  ${COLORS.green}→ Your project is ready for Bun! 🚀${COLORS.reset}`
-    );
-  } else if (score >= 70) {
-    console.log(
-      `  ${COLORS.yellow}→ Minor adjustments needed. Check the items above.${COLORS.reset}`
-    );
-  } else if (score >= 50) {
-    console.log(
-      `  ${COLORS.yellow}→ Several packages need attention before migrating.${COLORS.reset}`
+      `${COLORS.dim}Migration readiness: N/A (no packages could be analyzed)${COLORS.reset}`
     );
   } else {
-    console.log(
-      `  ${COLORS.red}→ Significant compatibility issues. Consider staying on Node.js for now.${COLORS.reset}`
+    const score = Math.round(
+      ((analyzedTotal - summary.incompatible) / analyzedTotal) * 100
     );
+    const scoreColor =
+      score >= 80 ? COLORS.green : score >= 50 ? COLORS.yellow : COLORS.red;
+
+    console.log(
+      `${COLORS.bold}Migration readiness: ${scoreColor}${score}%${COLORS.reset}`
+    );
+
+    if (score >= 90) {
+      console.log(
+        `  ${COLORS.green}→ Your project is ready for Bun! 🚀${COLORS.reset}`
+      );
+    } else if (score >= 70) {
+      console.log(
+        `  ${COLORS.yellow}→ Minor adjustments needed. Check the items above.${COLORS.reset}`
+      );
+    } else if (score >= 50) {
+      console.log(
+        `  ${COLORS.yellow}→ Several packages need attention before migrating.${COLORS.reset}`
+      );
+    } else {
+      console.log(
+        `  ${COLORS.red}→ Significant compatibility issues. Consider staying on Node.js for now.${COLORS.reset}`
+      );
+    }
   }
 
   console.log();

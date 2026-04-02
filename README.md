@@ -2,7 +2,7 @@
 
 Check your Node.js project's dependency compatibility with [Bun](https://bun.sh) runtime before migrating.
 
-Scans your `package.json`, cross-references a curated database of known issues, detects native addons, and generates a compatibility report with migration suggestions.
+Scans your `package.json`, performs static analysis of Node.js API usage in each dependency, detects native addons, and generates a compatibility report.
 
 ## Install
 
@@ -47,56 +47,49 @@ bun-compat-check -v
 ──────────────────────────────────────────────────
 
 ❌ INCOMPATIBLE  bcrypt@5.1.1
-   Native C++ addon compiled against V8. Bun uses JavaScriptCore.
-   → Alternative: bcryptjs (pure JS drop-in) or Bun.password built-in
-   → Bun built-in: Bun.password
+   Native addon detected (binding.gyp / node-gyp / N-API). Likely incompatible
+   with Bun's JavaScriptCore engine.
 
-⚠️  PARTIAL  sharp@0.33.2
-   Sharp added WebAssembly fallback. Works in most configurations as of 2026, but verify your platform.
+❌ INCOMPATIBLE  some-tracer@2.0.0
+   Uses unsupported Node.js APIs: trace_events
+   ✗ node:trace_events (unsupported)
 
-🔄 USE BUILTIN  dotenv@16.4.1
-   Bun automatically loads .env files without any package.
-   → Bun built-in: Built-in .env loading
-
-🔄 USE BUILTIN  ws@8.16.0
-   Bun has a built-in WebSocket server and client.
-   → Bun built-in: Bun.serve({ websocket })
+⚠️  PARTIAL  my-worker-lib@1.3.0
+   Uses partially supported Node.js APIs: worker_threads, vm
+   ~ node:worker_threads (partial)
+   ~ node:vm (partial)
 
 ✅ OK  express@4.18.2
 ✅ OK  zod@3.22.4
 ✅ OK  typescript@5.7.2
 
 ──────────────────────────────────────────────────
-Summary: 7 packages scanned
+Summary: 6 packages scanned
 
-  ❌  1 incompatible — will not work on Bun
-  ⚠️  1 partial — works with caveats
-  🔄  2 replaceable — Bun has built-in alternatives
+  ❌  2 incompatible — will not work on Bun
+  ⚠️  1 partial — uses partially supported APIs
   ✅  3 compatible
 
-Migration readiness: 71%
-  → Minor adjustments needed. Check the items above.
+Migration readiness: 67%
+  → Several packages need attention before migrating.
 ```
 
 ## How It Works
 
-1. **Known Issues Database** — Cross-references dependencies against a curated list of packages with known Bun compatibility issues, including alternatives and Bun built-in replacements.
+1. **Native Addon Detection** — Scans installed `node_modules` for signals like `binding.gyp`, `node-gyp` scripts, and N-API usage that indicate V8-dependent native addons.
 
-2. **Native Addon Detection** — Scans installed `node_modules` for signals like `binding.gyp`, `node-gyp` scripts, and N-API usage that indicate V8-dependent native addons.
+2. **Node.js API Static Analysis** — Scans `.js/.mjs/.cjs` files in each package for `require()` and `import` of Node.js built-in modules, then cross-references against Bun's compatibility table to flag unsupported or partially supported APIs.
 
-3. **Name Pattern Matching** — Flags packages with names matching common native addon patterns (`node-*`, `*-native`, `@napi-rs/*`).
-
-4. **Migration Score** — Calculates a readiness percentage based on the ratio of compatible + replaceable packages.
+3. **Migration Score** — Calculates a readiness percentage based on the ratio of non-incompatible packages (excludes packages that couldn't be analyzed).
 
 ## Status Labels
 
 | Icon | Status | Meaning |
 |------|--------|---------|
-| ✅ | Compatible | Works on Bun |
-| 🔄 | Use Builtin | Works, but Bun has a faster built-in alternative |
-| ⚠️ | Partial | Works with caveats or limited functionality |
-| ❌ | Incompatible | Will not work on Bun (native addon / V8-specific) |
-| ❓ | Unknown | Needs manual verification |
+| ✅ | Compatible | No incompatible Node.js API usage detected |
+| ⚠️ | Partial | Uses Node.js APIs with partial Bun support |
+| ❌ | Incompatible | Native addon or uses unsupported Node.js APIs |
+| ❓ | Unknown | Could not analyze (e.g. node_modules missing) |
 
 ## CI/CD Integration
 
@@ -109,11 +102,11 @@ bun-compat-check --json > compat-report.json || echo "Incompatible packages dete
 
 ## Contributing
 
-Contributions welcome! The most impactful way to help:
+Contributions welcome! The most impactful ways to help:
 
-- **Add packages to the known issues database** (`src/known-issues.ts`)
+- **Update the Node.js API compatibility table** as Bun releases new versions (`src/node-compat.ts`)
+- **Improve static analysis accuracy** (`src/analyzer.ts`)
 - **Report false positives/negatives** via GitHub Issues
-- **Improve native addon detection** heuristics
 
 ## Support
 

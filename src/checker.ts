@@ -1,32 +1,26 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import {
-  KNOWN_ISSUES,
-  NATIVE_ADDON_SIGNALS,
-  NATIVE_ADDON_NAME_PATTERNS,
-  type CompatStatus,
-  type KnownIssue,
-} from "./known-issues.js";
+import { analyzePackage, type DetectedApi } from "./analyzer.js";
+
+export type CompatStatus = "incompatible" | "partial" | "compatible" | "unknown";
 
 export interface CheckResult {
   name: string;
   version: string;
-  status: CompatStatus | "unknown";
+  status: CompatStatus;
   reason: string;
-  alternative?: string;
-  bunBuiltin?: string;
-  link?: string;
-  source: "known-db" | "native-detect" | "name-pattern" | "assumed-ok";
+  detectedApis?: DetectedApi[];
+  source: "native-detect" | "api-analysis" | "assumed-ok" | "no-node-modules";
 }
 
 export interface CheckSummary {
   total: number;
   compatible: number;
-  useBuiltin: number;
   partial: number;
   incompatible: number;
   unknown: number;
   results: CheckResult[];
+  warnings: string[];
 }
 
 interface PackageJson {
@@ -36,6 +30,19 @@ interface PackageJson {
   devDependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
 }
+
+/**
+ * Strings that indicate a package uses native addons.
+ */
+const NATIVE_ADDON_SIGNALS = [
+  "binding.gyp",
+  "node-gyp",
+  "node-pre-gyp",
+  "prebuild-install",
+  "node-addon-api",
+  "nan",
+  "napi",
+] as const;
 
 /**
  * Read and parse a package.json file.
@@ -50,12 +57,9 @@ export function readPackageJson(projectPath: string): PackageJson {
 }
 
 /**
- * Check if an installed package has native addon signals in its own package.json.
+ * Check if an installed package has native addon signals.
  */
-function detectNativeAddon(
-  projectPath: string,
-  pkgName: string
-): boolean {
+function detectNativeAddon(projectPath: string, pkgName: string): boolean {
   const pkgDir = join(projectPath, "node_modules", pkgName);
   const pkgJsonPath = join(pkgDir, "package.json");
 
@@ -108,13 +112,6 @@ function detectNativeAddon(
 }
 
 /**
- * Check if a package name matches known native addon patterns.
- */
-function matchesNativePattern(pkgName: string): boolean {
-  return NATIVE_ADDON_NAME_PATTERNS.some((pattern) => pattern.test(pkgName));
-}
-
-/**
  * Check a single package for Bun compatibility.
  */
 function checkPackage(
@@ -122,51 +119,44 @@ function checkPackage(
   name: string,
   version: string
 ): CheckResult {
-  // 1. Check known issues database
-  const known = KNOWN_ISSUES[name];
-  if (known) {
-    return {
-      name,
-      version,
-      status: known.status,
-      reason: known.reason,
-      alternative: known.alternative,
-      bunBuiltin: known.bunBuiltin,
-      link: known.link,
-      source: "known-db",
-    };
-  }
-
-  // 2. Detect native addons from installed node_modules
+  // Step 1: Native addon detection
   if (detectNativeAddon(projectPath, name)) {
     return {
       name,
       version,
-      status: "partial",
+      status: "incompatible",
       reason:
-        "Detected native addon (binding.gyp / node-gyp). May not work on Bun due to V8/JSC incompatibility.",
+        "Native addon detected (binding.gyp / node-gyp / N-API). Likely incompatible with Bun's JavaScriptCore engine.",
       source: "native-detect",
     };
   }
 
-  // 3. Check name patterns
-  if (matchesNativePattern(name)) {
+  // Step 2: Node.js API static analysis
+  const pkgDir = join(projectPath, "node_modules", name);
+  const analysis = analyzePackage(pkgDir);
+  if (analysis.detectedApis.length > 0) {
+    const hasUnsupported = analysis.detectedApis.some(
+      (a) => a.status === "unsupported"
+    );
+    const moduleList = analysis.detectedApis.map((a) => a.module).join(", ");
     return {
       name,
       version,
-      status: "unknown",
-      reason:
-        "Package name suggests it may contain native bindings. Verify manually.",
-      source: "name-pattern",
+      status: hasUnsupported ? "incompatible" : "partial",
+      reason: hasUnsupported
+        ? `Uses unsupported Node.js APIs: ${moduleList}`
+        : `Uses partially supported Node.js APIs: ${moduleList}`,
+      detectedApis: analysis.detectedApis,
+      source: "api-analysis",
     };
   }
 
-  // 4. Assume compatible
+  // Step 3: Assume compatible
   return {
     name,
     version,
-    status: "compatible" as CompatStatus,
-    reason: "No known issues. Pure JS/TS packages generally work on Bun.",
+    status: "compatible",
+    reason: "No incompatible Node.js API usage detected.",
     source: "assumed-ok",
   };
 }
@@ -193,31 +183,50 @@ export function checkProject(
     ...(includeOptional ? pkg.optionalDependencies || {} : {}),
   };
 
+  const warnings: string[] = [];
+  const hasNodeModules = existsSync(join(resolvedPath, "node_modules"));
+
+  if (!hasNodeModules && Object.keys(deps).length > 0) {
+    warnings.push(
+      "node_modules not found. Run `bun install` to enable full analysis."
+    );
+  }
+
   const results: CheckResult[] = [];
 
   for (const [name, version] of Object.entries(deps)) {
-    results.push(checkPackage(resolvedPath, name, version));
+    if (!hasNodeModules) {
+      results.push({
+        name,
+        version,
+        status: "unknown",
+        reason:
+          "Cannot analyze — node_modules not found.",
+        source: "no-node-modules",
+      });
+    } else {
+      results.push(checkPackage(resolvedPath, name, version));
+    }
   }
 
-  // Sort: incompatible first, then partial, then use-builtin, then unknown, then compatible
+  // Sort: incompatible first, then partial, then unknown, then compatible
   const statusOrder: Record<string, number> = {
     incompatible: 0,
     partial: 1,
-    "use-builtin": 2,
-    unknown: 3,
-    compatible: 4,
+    unknown: 2,
+    compatible: 3,
   };
   results.sort(
-    (a, b) => (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+    (a, b) => (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4)
   );
 
   return {
     total: results.length,
     incompatible: results.filter((r) => r.status === "incompatible").length,
     partial: results.filter((r) => r.status === "partial").length,
-    useBuiltin: results.filter((r) => r.status === "use-builtin").length,
     unknown: results.filter((r) => r.status === "unknown").length,
     compatible: results.filter((r) => r.status === "compatible").length,
     results,
+    warnings,
   };
 }
