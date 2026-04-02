@@ -9,19 +9,19 @@ CLI tool that checks Node.js project dependency compatibility with Bun runtime. 
 ## Commands
 
 - **Build:** `npm run build` (runs `tsc`)
-- **Dev:** `npm run dev` (runs `tsx src/index.ts` — note: source files are currently at root, not in `src/`)
+- **Dev:** `npm run dev` (runs `tsx src/index.ts`)
 - **Run built CLI:** `node dist/index.js [path] [--dev] [--json] [-v]`
 
 No test framework or linter is configured.
 
 ## Architecture
 
-Four TypeScript files at the repository root, no subdirectories:
+Four TypeScript files under `src/`:
 
-- **`index.ts`** — CLI entry point. Parses argv flags (`--dev`, `--json`, `-v`, `--optional`) and calls `checkProject()` then `printReport()`/`printJson()`. Exit code 1 if incompatible packages found, 2 on errors.
-- **`checker.ts`** — Core logic. `checkProject()` reads the target project's `package.json`, collects dependencies (optionally including dev/optional), and runs each through a 4-step check pipeline: (1) known-issues DB lookup, (2) native addon detection via filesystem signals in `node_modules`, (3) package name pattern matching, (4) assume compatible. Returns a `CheckSummary` with categorized results.
-- **`known-issues.ts`** — Curated `Record<string, KnownIssue>` mapping package names to compatibility status (`incompatible`, `partial`, `compatible`, `use-builtin`), reasons, alternatives, and Bun built-in replacements. Also exports `NATIVE_ADDON_SIGNALS` (strings like `node-gyp`, `nan`) and `NATIVE_ADDON_NAME_PATTERNS` (regexes like `/^@napi-rs\//`).
-- **`reporter.ts`** — Output formatting. `printReport()` renders a colorized terminal report grouped by status with a migration readiness percentage. `printJson()` outputs raw JSON. Uses ANSI escape codes directly (no chalk dependency).
+- **`src/index.ts`** — CLI entry point. Parses argv flags (`--dev`, `--json`, `-v`, `--optional`) and calls `checkProject()` then `printReport()`/`printJson()`. Exit code 1 if incompatible packages found, 2 on errors.
+- **`src/checker.ts`** — Core logic. `checkProject()` reads the target project's `package.json`, collects dependencies (optionally including dev/optional), and runs each through a 4-step check pipeline: (1) known-issues DB lookup, (2) native addon detection via filesystem signals in `node_modules`, (3) package name pattern matching, (4) assume compatible. Returns a `CheckSummary` with categorized results.
+- **`src/known-issues.ts`** — Curated `Record<string, KnownIssue>` mapping package names to compatibility status (`incompatible`, `partial`, `compatible`, `use-builtin`), reasons, alternatives, and Bun built-in replacements. Also exports `NATIVE_ADDON_SIGNALS` (strings like `node-gyp`, `nan`) and `NATIVE_ADDON_NAME_PATTERNS` (regexes like `/^@napi-rs\//`).
+- **`src/reporter.ts`** — Output formatting. `printReport()` renders a colorized terminal report grouped by status with a migration readiness percentage. `printJson()` outputs raw JSON. Uses ANSI escape codes directly (no chalk dependency).
 
 ## Key Types
 

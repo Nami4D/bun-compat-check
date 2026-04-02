@@ -151,9 +151,12 @@ export function printReport(
   console.log();
 
   // Migration readiness score
-  const score = Math.round(
-    ((summary.compatible + summary.useBuiltin) / summary.total) * 100
-  );
+  const score =
+    summary.total === 0
+      ? 100
+      : Math.round(
+          ((summary.compatible + summary.useBuiltin) / summary.total) * 100
+        );
   const scoreColor =
     score >= 80 ? COLORS.green : score >= 50 ? COLORS.yellow : COLORS.red;
 
