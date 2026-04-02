@@ -8,8 +8,8 @@ CLI tool that checks Node.js project dependency compatibility with Bun runtime. 
 
 ## Commands
 
-- **Build:** `npm run build` (runs `tsc`)
-- **Dev:** `npm run dev` (runs `tsx src/index.ts`)
+- **Build:** `bun run build` (runs `tsc`)
+- **Dev:** `bun run dev` (runs `tsx src/index.ts`)
 - **Run built CLI:** `node dist/index.js [path] [--dev] [--json] [-v]`
 
 No test framework or linter is configured.
