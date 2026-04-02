@@ -33,6 +33,9 @@ bun-compat-check ./my-project
 # Exclude devDependencies
 bun-compat-check --exclude-dev
 
+# Include optionalDependencies
+bun-compat-check --optional
+
 # JSON output (for CI/CD pipelines)
 bun-compat-check --json
 
