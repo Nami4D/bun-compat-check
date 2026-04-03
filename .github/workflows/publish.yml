@@ -1,0 +1,23 @@
+name: Publish to npm
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release          # npm 側で指定した environment
+    permissions:
+      contents: read
+      id-token: write             # OIDC トークン発行に必要
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun test --if-present
+      - run: npm publish --provenance
