@@ -18,6 +18,10 @@
     "migration",
     "cli"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nami4D/bun-compat-check"
+  },
   "author": "Nami4D",
   "license": "MIT",
   "funding": [
