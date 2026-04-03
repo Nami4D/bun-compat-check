@@ -1,5 +1,7 @@
 # bun-compat-check
 
+[![npm version](https://img.shields.io/npm/v/bun-compat-check)](https://www.npmjs.com/package/bun-compat-check)
+
 Check your Node.js project's dependency compatibility with [Bun](https://bun.sh) runtime before migrating.
 
 Scans your `package.json`, performs static analysis of Node.js API usage in each dependency, detects native addons, and generates a compatibility report.
