@@ -1,6 +1,6 @@
 {
   "name": "bun-compat-check",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Check your Node.js project's dependency compatibility with Bun runtime",
   "type": "module",
   "bin": {
